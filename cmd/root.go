@@ -5,8 +5,14 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
+	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -18,14 +24,94 @@ var rootCmd = &cobra.Command{
 	Long: `gen-insert is an application that generates SQL INSERT statements 
 from files of a specific format.
 
-Supported file formats are as follows
+Supported file formats are as follows:
 
 - CSV
-- TSV.`,
+- TSV
+
+Supported file encodings are as follows:
+
+- UTF-8`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
+	Args: func(cmd *cobra.Command, args []string) error {
+		_, err := os.Stat(args[0])
+		if os.IsNotExist(err) {
+			return fmt.Errorf("file not exists: %s", args[0])
+		}
+
+		ext := filepath.Ext(args[0])
+		if !(ext == ".csv" || ext == ".tsv") {
+			return fmt.Errorf(`file is not supported.
+Supported file formats: 
+
+- CSV
+- TSV`)
+		}
+
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hello World!")
+		fullpath := args[0]
+
+		// TODO 名前決めるロジックを分離
+		ext := filepath.Ext(fullpath)
+		filename := filepath.Base(fullpath)
+		table := strings.Replace(filename, ext, "", 1) // テーブル名に使用
+		dirname := filepath.Dir(fullpath)
+		outputFilename := "insert_" + table + ".sql"
+		sn := 0
+		for {
+			_, err := os.Stat(filepath.Join(dirname, outputFilename))
+			if os.IsNotExist(err) {
+				break
+			}
+			sn++
+			outputFilename = fmt.Sprintf("insert_%s(%d).sql", table, sn)
+		}
+
+		f, err := os.Open(fullpath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		r := csv.NewReader(f)
+		r.LazyQuotes = true
+		headers, err := r.Read()
+		if err != nil {
+			fmt.Println("Error reading headers:", err)
+			return
+		}
+
+		o, err := os.Create(filepath.Join(dirname, outputFilename))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer o.Close()
+
+		for {
+			values := make([]string, len(headers))
+			record, err := r.Read()
+			if err == io.EOF {
+				break
+			}
+			for i := 0; i < len(headers); i++ {
+				if strings.EqualFold(record[i], "null") {
+					values = append(values, "NULL")
+					continue
+				}
+				if _, err := strconv.ParseFloat(record[i], 64); err != nil {
+					values = append(values, fmt.Sprintf("'%s'", record[i]))
+					continue
+				}
+				values = append(values, record[i])
+			}
+
+			_, err = fmt.Fprintf(o, "INSERT INTO `%s` (%s) VALUES (%s);\n", table, "`"+strings.Join(headers, "`, `")+"`", strings.Join(values, ", "))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 	},
 }
 
@@ -47,5 +133,5 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
