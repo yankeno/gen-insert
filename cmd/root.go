@@ -11,10 +11,17 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	directory string
+	output    string
+	table     string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -35,14 +42,22 @@ Supported file encodings are as follows:
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Args: func(cmd *cobra.Command, args []string) error {
-		_, err := os.Stat(args[0])
-		if os.IsNotExist(err) {
+		if _, err := os.Stat(args[0]); os.IsNotExist(err) {
 			return fmt.Errorf("file not exists: %s", args[0])
 		}
 
-		ext := filepath.Ext(args[0])
-		if !(ext == ".csv" || ext == ".tsv") {
-			return fmt.Errorf(`file is not supported.
+		if f, err := os.Stat(directory); os.IsNotExist(err) || !f.IsDir() {
+			return fmt.Errorf("directory not exists: %s", directory)
+		}
+
+		if table != "" {
+			if matched, err := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*$`, table); !matched || err != nil {
+				return fmt.Errorf("table name is invalid: %s", table)
+			}
+		}
+
+		if ext := filepath.Ext(args[0]); !(ext == ".csv" || ext == ".tsv") {
+			return fmt.Errorf(`file format is not supported.
 Supported file formats: 
 
 - CSV
@@ -53,13 +68,31 @@ Supported file formats:
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fullpath := args[0]
+		f, err := os.Open(fullpath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
 
-		// TODO 名前決めるロジックを分離
 		ext := filepath.Ext(fullpath)
 		filename := filepath.Base(fullpath)
-		table := strings.Replace(filename, ext, "", 1) // テーブル名に使用
+
+		basename := strings.Replace(filename, ext, "", 1) // テーブル名に使用
+		if table != "" {
+			basename = table
+		}
+
 		dirname := filepath.Dir(fullpath)
-		outputFilename := "insert_" + table + ".sql"
+		if directory != "." {
+			dirname = directory
+		}
+
+		outputFilename := basename + ".sql"
+		if output != "" {
+			outputFilename = output + ".sql"
+		}
+		//fmt.Println(filepath.Join(dirname, outputFilename))
+		//os.Exit(0)
 		sn := 0
 		for {
 			_, err := os.Stat(filepath.Join(dirname, outputFilename))
@@ -67,19 +100,14 @@ Supported file formats:
 				break
 			}
 			sn++
-			outputFilename = fmt.Sprintf("insert_%s(%d).sql", table, sn)
+			outputFilename = fmt.Sprintf("%s(%d).sql", basename, sn)
 		}
 
-		f, err := os.Open(fullpath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
 		r := csv.NewReader(f)
 		r.LazyQuotes = true
 		headers, err := r.Read()
 		if err != nil {
-			fmt.Println("Error reading headers:", err)
+			fmt.Println("Error reading headers: ", err)
 			return
 		}
 
@@ -90,7 +118,7 @@ Supported file formats:
 		defer o.Close()
 
 		for {
-			values := make([]string, len(headers))
+			values := make([]string, 0, len(headers))
 			record, err := r.Read()
 			if err == io.EOF {
 				break
@@ -106,8 +134,7 @@ Supported file formats:
 				}
 				values = append(values, record[i])
 			}
-
-			_, err = fmt.Fprintf(o, "INSERT INTO `%s` (%s) VALUES (%s);\n", table, "`"+strings.Join(headers, "`, `")+"`", strings.Join(values, ", "))
+			_, err = fmt.Fprintf(o, "INSERT INTO `%s` (%s) VALUES (%s);\n", basename, "`"+strings.Join(headers, "`, `")+"`", strings.Join(values, ", "))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -134,4 +161,7 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringVarP(&directory, "directory", "d", ".", "Output directory")
+	rootCmd.Flags().StringVarP(&output, "output", "o", "", "Output file name")
+	rootCmd.Flags().StringVarP(&table, "table", "t", "", "Table name")
 }
