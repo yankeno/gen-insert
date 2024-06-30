@@ -19,9 +19,8 @@ import (
 )
 
 var (
-	directory string
-	output    string
-	table     string
+	output string
+	table  string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -39,15 +38,9 @@ Supported file formats are as follows:
 Supported file encodings are as follows:
 
 - UTF-8`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	Args: func(cmd *cobra.Command, args []string) error {
+	Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 		if _, err := os.Stat(args[0]); os.IsNotExist(err) {
 			return fmt.Errorf("file not exists: %s", args[0])
-		}
-
-		if f, err := os.Stat(directory); os.IsNotExist(err) || !f.IsDir() {
-			return fmt.Errorf("directory not exists: %s", directory)
 		}
 
 		if table != "" {
@@ -65,7 +58,7 @@ Supported file formats:
 		}
 
 		return nil
-	},
+	}),
 	Run: func(cmd *cobra.Command, args []string) {
 		fullpath := args[0]
 		f, err := os.Open(fullpath)
@@ -76,23 +69,22 @@ Supported file formats:
 
 		ext := filepath.Ext(fullpath)
 		filename := filepath.Base(fullpath)
-
-		basename := strings.Replace(filename, ext, "", 1) // テーブル名に使用
+		tablename := strings.Replace(filename, ext, "", 1)
 		if table != "" {
-			basename = table
+			tablename = table
 		}
 
-		dirname := filepath.Dir(fullpath)
-		if directory != "." {
-			dirname = directory
+		dirname := filepath.Dir(output)
+		if _, err := os.Stat(dirname); os.IsNotExist(err) {
+			os.MkdirAll(dirname, 0755)
 		}
 
-		outputFilename := basename + ".sql"
+		outputFilename := tablename + ".sql"
 		if output != "" {
-			outputFilename = output + ".sql"
+			outputFilename = filepath.Base(output)
 		}
-		//fmt.Println(filepath.Join(dirname, outputFilename))
-		//os.Exit(0)
+		outputBasename := strings.Replace(outputFilename, filepath.Ext(outputFilename), "", 1)
+
 		sn := 0
 		for {
 			_, err := os.Stat(filepath.Join(dirname, outputFilename))
@@ -100,11 +92,15 @@ Supported file formats:
 				break
 			}
 			sn++
-			outputFilename = fmt.Sprintf("%s(%d).sql", basename, sn)
+			outputFilename = fmt.Sprintf("%s(%d).sql", outputBasename, sn)
 		}
 
 		r := csv.NewReader(f)
 		r.LazyQuotes = true
+		if ext == ".tsv" {
+			r.Comma = '\t'
+		}
+
 		headers, err := r.Read()
 		if err != nil {
 			fmt.Println("Error reading headers: ", err)
@@ -134,11 +130,13 @@ Supported file formats:
 				}
 				values = append(values, record[i])
 			}
-			_, err = fmt.Fprintf(o, "INSERT INTO `%s` (%s) VALUES (%s);\n", basename, "`"+strings.Join(headers, "`, `")+"`", strings.Join(values, ", "))
+			_, err = fmt.Fprintf(o, "INSERT INTO `%s` (%s) VALUES (%s);\n", tablename, "`"+strings.Join(headers, "`, `")+"`", strings.Join(values, ", "))
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
+
+		fmt.Printf("INSERT statement '%s' was generated successfully!\n", outputFilename)
 	},
 }
 
@@ -160,8 +158,6 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.Flags().StringVarP(&directory, "directory", "d", ".", "Output directory")
 	rootCmd.Flags().StringVarP(&output, "output", "o", "", "Output file name")
 	rootCmd.Flags().StringVarP(&table, "table", "t", "", "Table name")
 }
