@@ -1,7 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
@@ -60,15 +56,15 @@ Supported file formats:
 		return nil
 	}),
 	Run: func(cmd *cobra.Command, args []string) {
-		fullpath := args[0]
-		f, err := os.Open(fullpath)
+		source := args[0]
+		f, err := os.Open(source)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer f.Close()
 
-		ext := filepath.Ext(fullpath)
-		filename := filepath.Base(fullpath)
+		ext := filepath.Ext(source)
+		filename := filepath.Base(source)
 		tablename := strings.Replace(filename, ext, "", 1)
 		if table != "" {
 			tablename = table
