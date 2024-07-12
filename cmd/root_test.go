@@ -55,6 +55,9 @@ func TestGenInsertErrors(t *testing.T) {
 		tempDir := t.TempDir()
 		csvFile := filepath.Join(tempDir, "test.unsupported")
 		_, err := os.Create(csvFile)
+		if err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
 		rootCmd.SetArgs([]string{csvFile}) // reset flags with empty strings
 
 		err = rootCmd.Execute()

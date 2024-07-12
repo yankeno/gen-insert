@@ -72,7 +72,11 @@ Supported file formats:
 
 		dirname := filepath.Dir(output)
 		if _, err := os.Stat(dirname); os.IsNotExist(err) {
-			os.MkdirAll(dirname, 0755)
+			err = os.MkdirAll(dirname, 0755)
+			if err != nil {
+				fmt.Println("Error making directories: ", err)
+				return
+			}
 		}
 
 		outputFilename := tablename + ".sql"
