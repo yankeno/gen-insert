@@ -57,7 +57,7 @@ Supported file formats:
 	}),
 	Run: func(cmd *cobra.Command, args []string) {
 		source := args[0]
-		f, err := os.Open(source)
+		f, err := os.Open(filepath.Clean(source))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -71,7 +71,7 @@ Supported file formats:
 		}
 
 		dirname := filepath.Dir(output)
-		if _, err := os.Stat(dirname); os.IsNotExist(err) {
+		if _, err = os.Stat(dirname); os.IsNotExist(err) {
 			err = os.MkdirAll(dirname, 0755)
 			if err != nil {
 				fmt.Println("Error making directories: ", err)
@@ -87,7 +87,7 @@ Supported file formats:
 
 		sn := 0
 		for {
-			_, err := os.Stat(filepath.Join(dirname, outputFilename))
+			_, err = os.Stat(filepath.Join(dirname, outputFilename))
 			if os.IsNotExist(err) {
 				break
 			}
@@ -107,7 +107,7 @@ Supported file formats:
 			return
 		}
 
-		o, err := os.Create(filepath.Join(dirname, outputFilename))
+		o, err := os.Create(filepath.Clean(filepath.Join(dirname, outputFilename)))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -124,7 +124,7 @@ Supported file formats:
 					values = append(values, "NULL")
 					continue
 				}
-				if _, err := strconv.ParseFloat(record[i], 64); err != nil {
+				if _, err = strconv.ParseFloat(record[i], 64); err != nil {
 					values = append(values, fmt.Sprintf("'%s'", record[i]))
 					continue
 				}

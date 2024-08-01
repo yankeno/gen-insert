@@ -1,0 +1,21 @@
+run:
+  timeout: 5m
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  exhaustruct:
+    exclude:
+      - '.+/cobra\.Command$'
+
+linters:
+  enable:
+    - gosec
+    - dupl
+    - dupword
+    - bidichk
+    - exhaustruct
+
+issues:
+  max-issues-per-linter: 1000
+  max-same-issues: 1000
