@@ -24,7 +24,7 @@ func TestGenInsertErrors(t *testing.T) {
 	t.Run("invalid table name", func(t *testing.T) {
 		tempDir := t.TempDir()
 		csvFile := filepath.Join(tempDir, "test.csv")
-		_, err := os.Create(csvFile)
+		_, err := os.Create(filepath.Clean(csvFile))
 		if err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
@@ -54,7 +54,7 @@ func TestGenInsertErrors(t *testing.T) {
 	t.Run("unsupported file format", func(t *testing.T) {
 		tempDir := t.TempDir()
 		csvFile := filepath.Join(tempDir, "test.unsupported")
-		_, err := os.Create(csvFile)
+		_, err := os.Create(filepath.Clean(csvFile))
 		if err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
@@ -83,11 +83,11 @@ func TestGenInsertOutput(t *testing.T) {
 			t.Fatalf("command execution failed: %v", err)
 		}
 
-		if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		if _, err = os.Stat(outputFile); os.IsNotExist(err) {
 			t.Fatalf("expected output file to be created: %v", err)
 		}
 
-		outputContent, err := os.ReadFile(outputFile)
+		outputContent, err := os.ReadFile(filepath.Clean(outputFile))
 		if err != nil {
 			t.Fatalf("failed to read output file: %v", err)
 		}
@@ -109,11 +109,11 @@ func TestGenInsertOutput(t *testing.T) {
 			t.Fatalf("command execution failed: %v", err)
 		}
 
-		if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		if _, err = os.Stat(outputFile); os.IsNotExist(err) {
 			t.Fatalf("expected output file to be created: %v", err)
 		}
 
-		outputContent, err := os.ReadFile(outputFile)
+		outputContent, err := os.ReadFile(filepath.Clean(outputFile))
 		if err != nil {
 			t.Fatalf("failed to read output file: %v", err)
 		}

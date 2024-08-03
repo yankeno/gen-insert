@@ -1,4 +1,4 @@
-module gen-insert
+module github.com/yankeno/gen-insert
 
 go 1.20
 
